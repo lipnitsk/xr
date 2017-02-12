@@ -13,7 +13,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  */
- 
+
 /*
  * CMSPAR, some architectures can't have space and mark parity.
  */
@@ -41,6 +41,7 @@
 
 #define XR_USB_SERIAL_CTRL_DTR		0x01
 #define XR_USB_SERIAL_CTRL_RTS		0x02
+
 /*
  * Input control lines and line errors.
  */
@@ -69,6 +70,23 @@
 #define XR_USB_SERIAL_NW  16
 #define XR_USB_SERIAL_NR  16
 
+struct xr_usb_serial_wb {
+	unsigned char *buf;
+	dma_addr_t dmah;
+	int len;
+	int use;
+	struct urb		*urb;
+	struct xr_usb_serial		*instance;
+};
+
+struct xr_usb_serial_rb {
+	int			size;
+	unsigned char		*base;
+	dma_addr_t		dma;
+	int			index;
+	struct xr_usb_serial		*instance;
+};
+
 struct reg_addr_map {
 	unsigned int    uart_enable_addr;
 	unsigned int    uart_format_addr;
@@ -86,37 +104,52 @@ struct reg_addr_map {
 	unsigned int    uart_low_latency;
 };
 
-
+struct xr_usb_serial {
+	struct usb_device *dev;				/* the corresponding usb device */
+	struct usb_interface *control;			/* control interface */
+	struct usb_interface *data;			/* data interface */
+	struct tty_port port;			 	/* our tty port data */
+	struct urb *ctrlurb;				/* urbs */
+	u8 *ctrl_buffer;				/* buffers of urbs */
+	dma_addr_t ctrl_dma;				/* dma handles of buffers */
+	u8 *country_codes;				/* country codes from device */
+	unsigned int country_code_size;			/* size of this buffer */
+	unsigned int country_rel_date;			/* release date of version */
+	struct xr_usb_serial_wb wb[XR_USB_SERIAL_NW];
+	unsigned long read_urbs_free;
+	struct urb *read_urbs[XR_USB_SERIAL_NR];
+	struct xr_usb_serial_rb read_buffers[XR_USB_SERIAL_NR];
+	int rx_buflimit;
+	int rx_endpoint;
+	spinlock_t read_lock;
+	int write_used;					/* number of non-empty write buffers */
+	int transmitting;
+	spinlock_t write_lock;
+	struct mutex mutex;
+	bool disconnected;
+	struct usb_cdc_line_coding line;		/* bits, stop, parity */
+	struct work_struct work;			/* work queue entry for line discipline waking up */
+	unsigned int ctrlin;				/* input control lines (DCD, DSR, RI, break, overruns) */
+	unsigned int ctrlout;				/* output control lines (DTR, RTS) */
+	unsigned int writesize;				/* max packet size for the output bulk endpoint */
+	unsigned int readsize,ctrlsize;			/* buffer sizes for freeing */
+	unsigned int minor;				/* xr_usb_serial minor number */
+	unsigned char clocal;				/* termios CLOCAL */
+	unsigned int ctrl_caps;				/* control capabilities from the class specific header */
+	unsigned int susp_count;			/* number of suspended interfaces */
+	unsigned int combined_interfaces:1;		/* control and data collapsed */
+	unsigned int is_int_ep:1;			/* interrupt endpoints contrary to spec used */
+	unsigned int throttled:1;			/* actually throttled */
+	unsigned int throttle_req:1;			/* throttle requested */
+	u8 bInterval;
+	struct xr_usb_serial_wb *delayed_wb;			/* write queued for a device about to be woken */
+	unsigned int channel;
+	unsigned short DeviceVendor;
+	unsigned short DeviceProduct;
+	struct reg_addr_map reg_map;
+};
 
 #define CDC_DATA_INTERFACE_TYPE	0x0a
-
-
-#define UART_FLOW                                          0x006
-#define UART_FLOW_MODE_M                                   0x7
-#define UART_FLOW_MODE_S                                   0
-#define UART_FLOW_MODE                                     0x007
-
-#define UART_FLOW_MODE_NONE                                (0x0 << UART_FLOW_MODE_S)
-#define UART_FLOW_MODE_HW                                  (0x1 << UART_FLOW_MODE_S)
-#define UART_FLOW_MODE_SW                                  (0x2 << UART_FLOW_MODE_S)
-#define UART_FLOW_MODE_ADDR_MATCH                          (0x3 << UART_FLOW_MODE_S)
-#define UART_FLOW_MODE_ADDR_MATCH_TX                       (0x4 << UART_FLOW_MODE_S)
-
-#define UART_FLOW_HALF_DUPLEX_M                            0x1
-#define UART_FLOW_HALF_DUPLEX_S                            3
-#define UART_FLOW_HALF_DUPLEX                              0x008
-
-#define UART_LOOPBACK_CTL                                  0x016
-#define LOOPBACK_ENABLE_TX_RX                              1
-#define LOOPBACK_ENABLE_RTS_CTS                            2
-#define LOOPBACK_ENABLE_DTR_DSR                            4
-
-#define RAMCTL_BUFFER_PARITY                               0x1
-#define RAMCTL_BUFFER_BREAK                                0x2
-#define RAMCTL_BUFFER_FRAME                                0x4
-#define RAMCTL_BUFFER_OVERRUN                              0x8
-#define CUSTOM_DRIVER_ACTIVE                               0x1
-
 
 /* constants describing various quirks and errors */
 #define NO_UNION_NORMAL			1
@@ -139,6 +172,9 @@ struct reg_addr_map {
 #define LOOPBACK_ENABLE_RTS_CTS           2
 #define LOOPBACK_ENABLE_DTR_DSR           4
 
+#define UART_FLOW_MODE_NONE              0x0
+#define UART_FLOW_MODE_HW                0x1
+#define UART_FLOW_MODE_SW                0x2
 
 #define UART_GPIO_MODE_SEL_GPIO          0x0
 #define UART_GPIO_MODE_SEL_RTS_CTS       0x1

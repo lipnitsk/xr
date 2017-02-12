@@ -1,5 +1,8 @@
 Exar USB Serial Driver
 ======================
+Version 1B, 1/13/2017
+Fixed Bug: The conditional logic to support kernel 3.9 was incorrect (line 396 in xr_usb_serial_common.c). 
+
 Version 1A, 1/9/2015
 
 This driver will work with any USB UART function in these Exar devices:
@@ -8,7 +11,8 @@ This driver will work with any USB UART function in these Exar devices:
 	XR21B1420/1422/1424
 	XR22801/802/804
 
-The source code has been tested on Linux kernels 2.6.18 to 3.4.x.  This may also work with other kernels.  
+The source code has been tested on various Linux kernels from 3.6.x to 3.17.x.  
+This may also work with newer kernels as well.  
 
 
 Installation
@@ -21,7 +25,7 @@ Installation
 
 
 * Plug the device into the USB host.  You should see up to four devices created,
-  typically /dev/ttyUSB[0-3].
+  typically /dev/ttyXRUSB[0-3].
 
 
 Tips for Debugging
