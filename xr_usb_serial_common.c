@@ -256,7 +256,6 @@ static void xr_usb_serial_ctrl_irq(struct urb *urb)
 {
 	struct xr_usb_serial *xr_usb_serial = urb->context;
 	struct usb_cdc_notification *dr = urb->transfer_buffer;
-	struct tty_struct *tty;
 	unsigned char *data;
 	int newctrl;
 	int retval;
@@ -296,26 +295,12 @@ static void xr_usb_serial_ctrl_irq(struct urb *urb)
 		break;
 
 	case USB_CDC_NOTIFY_SERIAL_STATE:
-#if LINUX_VERSION_CODE > KERNEL_VERSION(3, 9, 0)
 		newctrl = get_unaligned_le16(data);
 		if (!xr_usb_serial->clocal && (xr_usb_serial->ctrlin & ~newctrl & XR_USB_SERIAL_CTRL_DCD)) {
 			dev_dbg(&xr_usb_serial->control->dev, "%s - calling hangup\n",
 				__func__);
 			tty_port_tty_hangup(&xr_usb_serial->port, false);
 		}
-#else
-		tty = tty_port_tty_get(&xr_usb_serial->port);
-		newctrl = get_unaligned_le16(data);
-		if (tty) {
-			if (!xr_usb_serial->clocal &&
-			    (xr_usb_serial->ctrlin & ~newctrl & XR_USB_SERIAL_CTRL_DCD)) {
-				dev_dbg(&xr_usb_serial->control->dev,
-					"%s - calling hangup\n", __func__);
-				tty_hangup(tty);
-			}
-			tty_kref_put(tty);
-		}
-#endif
 		xr_usb_serial->ctrlin = newctrl;
 
 		dev_dbg(&xr_usb_serial->control->dev,
@@ -385,23 +370,11 @@ static int xr_usb_serial_submit_read_urbs(struct xr_usb_serial *xr_usb_serial, g
 }
 static void xr_usb_serial_process_read_urb(struct xr_usb_serial *xr_usb_serial, struct urb *urb)
 {
-	struct tty_struct *tty;
-
 	if (!urb->actual_length)
 		return;
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 9, 0)
 	tty_insert_flip_string(&xr_usb_serial->port, urb->transfer_buffer,
 			       urb->actual_length);
 	tty_flip_buffer_push(&xr_usb_serial->port);
-#else
-	tty = tty_port_tty_get(&xr_usb_serial->port);
-	if (!tty)
-		return;
-	tty_insert_flip_string(tty, urb->transfer_buffer, urb->actual_length);
-	tty_flip_buffer_push(tty);
-
-	tty_kref_put(tty);
-#endif
 }
 
 static void xr_usb_serial_read_bulk_callback(struct urb *urb)
@@ -462,18 +435,9 @@ static void xr_usb_serial_write_bulk(struct urb *urb)
 static void xr_usb_serial_softint(struct work_struct *work)
 {
 	struct xr_usb_serial *xr_usb_serial = container_of(work, struct xr_usb_serial, work);
-	struct tty_struct *tty;
 
 	dev_vdbg(&xr_usb_serial->data->dev, "%s\n", __func__);
-#if LINUX_VERSION_CODE > KERNEL_VERSION(3, 9, 0)
 	tty_port_tty_wakeup(&xr_usb_serial->port);
-#else
-	tty = tty_port_tty_get(&xr_usb_serial->port);
-	if (!tty)
-		return;
-	tty_wakeup(tty);
-	tty_kref_put(tty);
-#endif
 }
 
 /*
@@ -583,9 +547,6 @@ static void xr_usb_serial_port_destruct(struct tty_port *port)
 	struct xr_usb_serial *xr_usb_serial = container_of(port, struct xr_usb_serial, port);
 
 	dev_dbg(&xr_usb_serial->control->dev, "%s\n", __func__);
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 7, 0)
-	tty_unregister_device(xr_usb_serial_tty_driver, xr_usb_serial->minor);
-#endif
 	xr_usb_serial_release_minor(xr_usb_serial);
 	usb_put_intf(xr_usb_serial->control);
 	kfree(xr_usb_serial->country_codes);
@@ -971,11 +932,7 @@ static void xr_usb_serial_tty_set_termios(struct tty_struct *	tty,
 {
 	struct xr_usb_serial *xr_usb_serial = tty->driver_data;
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 7, 0)
-	struct ktermios *termios = tty->termios;
-#else
 	struct ktermios *termios = &tty->termios;
-#endif
 	unsigned int cflag = termios->c_cflag;
 	struct usb_cdc_line_coding newline;
 	int newctrl = xr_usb_serial->ctrlout;
@@ -1423,11 +1380,7 @@ made_compressed_probe:
 
 		if (usb_endpoint_xfer_int(epwrite)) {
 			usb_fill_int_urb(snd->urb, usb_dev,
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 7, 0)
-					 usb_sndbulkpipe(usb_dev, epwrite->bEndpointAddress),
-#else
 					 usb_sndintpipe(usb_dev, epwrite->bEndpointAddress),
-#endif
 					 NULL, xr_usb_serial->writesize, xr_usb_serial_write_bulk, snd, epwrite->bInterval);
 		} else {
 			usb_fill_bulk_urb(snd->urb, usb_dev,
@@ -1495,16 +1448,12 @@ skip_countries:
 	usb_set_intfdata(data_interface, xr_usb_serial);
 
 	usb_get_intf(control_interface);
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 7, 0)
-	tty_register_device(xr_usb_serial_tty_driver, minor, &control_interface->dev);
-#else
 	tty_dev = tty_port_register_device(&xr_usb_serial->port, xr_usb_serial_tty_driver, minor,
 					   &control_interface->dev);
 	if (IS_ERR(tty_dev)) {
 		rv = PTR_ERR(tty_dev);
 		goto alloc_fail8;
 	}
-#endif
 
 	return 0;
 alloc_fail8:
@@ -1582,9 +1531,7 @@ static void xr_usb_serial_disconnect(struct usb_interface *intf)
 		tty_kref_put(tty);
 	}
 	stop_data_traffic(xr_usb_serial);
-#if LINUX_VERSION_CODE > KERNEL_VERSION(3, 7, 0)
 	tty_unregister_device(xr_usb_serial_tty_driver, xr_usb_serial->minor);
-#endif
 
 	usb_free_urb(xr_usb_serial->ctrlurb);
 	for (i = 0; i < XR_USB_SERIAL_NW; i++)
@@ -1678,18 +1625,9 @@ err_out:
 static int xr_usb_serial_reset_resume(struct usb_interface *intf)
 {
 	struct xr_usb_serial *xr_usb_serial = usb_get_intfdata(intf);
-	struct tty_struct *tty;
 
 	if (test_bit(ASYNCB_INITIALIZED, &xr_usb_serial->port.flags)) {
-#if LINUX_VERSION_CODE > KERNEL_VERSION(3, 9, 0)
 		tty_port_tty_hangup(&xr_usb_serial->port, false);
-#else
-		tty = tty_port_tty_get(&xr_usb_serial->port);
-		if (tty) {
-			tty_hangup(tty);
-			tty_kref_put(tty);
-		}
-#endif
 	}
 	return xr_usb_serial_resume(intf);
 }
