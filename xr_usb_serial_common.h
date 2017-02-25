@@ -19,41 +19,41 @@
  */
 
 #ifndef CMSPAR
-#define CMSPAR                  0
+#define CMSPAR				0
 #endif
 
 /*
  * Major and minor numbers.
  */
 
-#define XR_USB_SERIAL_TTY_MAJOR             266
-#define XR_USB_SERIAL_TTY_MINORS                32
+#define XR_USB_SERIAL_TTY_MAJOR		266
+#define XR_USB_SERIAL_TTY_MINORS	32
 
 /*
  * Requests.
  */
 
-#define USB_RT_XR_USB_SERIAL            (USB_TYPE_CLASS | USB_RECIP_INTERFACE)
+#define USB_RT_XR_USB_SERIAL		(USB_TYPE_CLASS | USB_RECIP_INTERFACE)
 
 /*
  * Output control lines.
  */
 
-#define XR_USB_SERIAL_CTRL_DTR          0x01
-#define XR_USB_SERIAL_CTRL_RTS          0x02
+#define XR_USB_SERIAL_CTRL_DTR		0x01
+#define XR_USB_SERIAL_CTRL_RTS		0x02
 
 /*
  * Input control lines and line errors.
  */
 
-#define XR_USB_SERIAL_CTRL_DCD          0x01
-#define XR_USB_SERIAL_CTRL_DSR          0x02
-#define XR_USB_SERIAL_CTRL_BRK          0x04
-#define XR_USB_SERIAL_CTRL_RI           0x08
+#define XR_USB_SERIAL_CTRL_DCD		0x01
+#define XR_USB_SERIAL_CTRL_DSR		0x02
+#define XR_USB_SERIAL_CTRL_BRK		0x04
+#define XR_USB_SERIAL_CTRL_RI		0x08
 
-#define XR_USB_SERIAL_CTRL_FRAMING      0x10
-#define XR_USB_SERIAL_CTRL_PARITY               0x20
-#define XR_USB_SERIAL_CTRL_OVERRUN      0x40
+#define XR_USB_SERIAL_CTRL_FRAMING	0x10
+#define XR_USB_SERIAL_CTRL_PARITY	0x20
+#define XR_USB_SERIAL_CTRL_OVERRUN	0x40
 
 /*
  * Internal driver structures.
@@ -71,20 +71,20 @@
 #define XR_USB_SERIAL_NR  16
 
 struct xr_usb_serial_wb {
-	unsigned char *		buf;
+	unsigned char		*buf;
 	dma_addr_t		dmah;
 	int			len;
 	int			use;
-	struct urb *		urb;
-	struct xr_usb_serial *	instance;
+	struct urb		*urb;
+	struct xr_usb_serial	*instance;
 };
 
 struct xr_usb_serial_rb {
 	int			size;
-	unsigned char *		base;
+	unsigned char		*base;
 	dma_addr_t		dma;
 	int			index;
-	struct xr_usb_serial *	instance;
+	struct xr_usb_serial	*instance;
 };
 
 struct reg_addr_map {
@@ -104,45 +104,90 @@ struct reg_addr_map {
 	unsigned int	uart_low_latency;
 };
 
+/**
+ * xr_usb_serial - structure used by the xr-usb-serial core for a device
+ * @dev: the correctioding usb device
+ * @control: control interface
+ * @data: data interface
+ * @port: our TTY port data
+ * @ctrlurb: URBs
+ * @ctrl_buffer: buffers of URBs
+ * @ctrl_dma: DMA handles of buffers
+ * @country_codes: country codes from device
+ * @country_code_size: size of the country code buffer
+ * @country_rel_date: release date of version
+ * @wb:
+ * @read_urbs_free:
+ * @read_urbs:
+ * @read_buffers:
+ * @rx_buflimit:
+ * @rx_endpoint:
+ * @read_lock:
+ * @write_used: number of non-empty write buffers
+ * @transmitting:
+ * @write_lock:
+ * @mutex:
+ * @disconnected:
+ * @line: bits, stop, parity
+ * @work: work queue entry for line discipline waking up
+ * @ctrlin: input control lines (DCD, DSR, RI, break, overruns)
+ * @ctrlout: output control lines (DTR, RTS)
+ * @writesize: max packet size for the output bulk endpoint
+ * @readsize, ctrlsize: buffer sizes for freeing
+ * @minor: xr_usb_serial minot number
+ * @clocal: termios CLOCAL
+ * @ctrl_caps: control capabilities from the class specific header
+ * @susp_count: number of suspended interfaces
+ * @combined_interfaces: control and data collapsed
+ * @is_int_ep: interrupt endpoints contrary to spec used
+ * @throttled: actually throttled
+ * @throttle_req: throttle requested
+ * @bInterval:
+ * @delayed_wb: write queue for a device about to be woken
+ * @channel:
+ * @DeviceVendor:
+ * @DeviceProduct:
+ * @reg_map:
+ */
 struct xr_usb_serial {
-	struct usb_device *		dev;                    /* the corresponding usb device */
-	struct usb_interface *		control;                /* control interface */
-	struct usb_interface *		data;                   /* data interface */
-	struct tty_port			port;                   /* our tty port data */
-	struct urb *			ctrlurb;                /* urbs */
-	u8 *				ctrl_buffer;            /* buffers of urbs */
-	dma_addr_t			ctrl_dma;               /* dma handles of buffers */
-	u8 *				country_codes;          /* country codes from device */
-	unsigned int			country_code_size;      /* size of this buffer */
-	unsigned int			country_rel_date;       /* release date of version */
+	struct usb_device		*dev;
+	struct usb_interface		*control;
+	struct usb_interface		*data;
+	struct tty_port			port;
+	struct urb			*ctrlurb;
+	u8				*ctrl_buffer;
+	dma_addr_t			ctrl_dma;
+	u8				*country_codes;
+	unsigned int			country_code_size;
+	unsigned int			country_rel_date;
 	struct xr_usb_serial_wb		wb[XR_USB_SERIAL_NW];
 	unsigned long			read_urbs_free;
-	struct urb *			read_urbs[XR_USB_SERIAL_NR];
+	struct urb			*read_urbs[XR_USB_SERIAL_NR];
 	struct xr_usb_serial_rb		read_buffers[XR_USB_SERIAL_NR];
 	int				rx_buflimit;
 	int				rx_endpoint;
 	spinlock_t			read_lock;
-	int				write_used;     /* number of non-empty write buffers */
+	int				write_used;
 	int				transmitting;
 	spinlock_t			write_lock;
 	struct mutex			mutex;
 	bool				disconnected;
-	struct usb_cdc_line_coding	line;                           /* bits, stop, parity */
-	struct work_struct		work;                           /* work queue entry for line discipline waking up */
-	unsigned int			ctrlin;                         /* input control lines (DCD, DSR, RI, break, overruns) */
-	unsigned int			ctrlout;                        /* output control lines (DTR, RTS) */
-	unsigned int			writesize;                      /* max packet size for the output bulk endpoint */
-	unsigned int			readsize, ctrlsize;             /* buffer sizes for freeing */
-	unsigned int			minor;                          /* xr_usb_serial minor number */
-	unsigned char			clocal;                         /* termios CLOCAL */
-	unsigned int			ctrl_caps;                      /* control capabilities from the class specific header */
-	unsigned int			susp_count;                     /* number of suspended interfaces */
-	unsigned int			combined_interfaces : 1;        /* control and data collapsed */
-	unsigned int			is_int_ep : 1;                  /* interrupt endpoints contrary to spec used */
-	unsigned int			throttled : 1;                  /* actually throttled */
-	unsigned int			throttle_req : 1;               /* throttle requested */
+	struct usb_cdc_line_coding	line;
+	struct work_struct		work;
+	unsigned int			ctrlin;
+	unsigned int			ctrlout;
+	unsigned int			writesize;
+	unsigned int			readsize, ctrlsize;
+	unsigned int			minor;
+	unsigned char			clocal;
+	unsigned int			ctrl_caps;
+	unsigned int			susp_count;
+	unsigned int			combined_interfaces : 1;
+	unsigned int			is_int_ep : 1;
+	unsigned int			throttled : 1;
+	unsigned int			throttle_req : 1;
 	u8				bInterval;
-	struct xr_usb_serial_wb *	delayed_wb;                     /* write queued for a device about to be woken */
+	struct xr_usb_serial_wb		*delayed_wb;
 	unsigned int			channel;
 	unsigned short			DeviceVendor;
 	unsigned short			DeviceProduct;

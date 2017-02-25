@@ -3,7 +3,7 @@ obj-m := xr_usb_serial_common.o
 KERNELDIR ?= /lib/modules/$(shell uname -r)/build
 PWD       := $(shell pwd)
 
-EXTRA_CFLAGS	:= -DDEBUG=0
+ccflags-y	:= -DDEBUG=0
 
 all:
 	$(MAKE) -C $(KERNELDIR) M=$(PWD)

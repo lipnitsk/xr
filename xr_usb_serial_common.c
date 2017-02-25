@@ -857,9 +857,9 @@ static int xr_usb_serial_tty_ioctl(struct tty_struct *tty,
 			return -EFAULT;
 
 		if (channel == -1)
-			rv = xr_usb_serial_set_reg(xr, reg, val);
+			rv = set_reg(xr, reg, val);
 		else
-			rv = xr_usb_serial_set_reg_ext(xr, channel, reg, val);
+			rv = set_reg_ext(xr, channel, reg, val);
 
 		if (rv < 0)
 			return -EFAULT;
@@ -883,11 +883,11 @@ static int xr_usb_serial_tty_ioctl(struct tty_struct *tty,
 			return -EFAULT;
 		if (channel == -1) {
 			//block = portdata->block;
-			rv = xr_usb_serial_set_reg(xr,
-					xr->reg_map.uart_gpio_mode_addr, val);
+			rv = set_reg(xr,
+				     xr->reg_map.uart_gpio_mode_addr, val);
 		} else {
-			rv = xr_usb_serial_set_reg_ext(xr, channel,
-					xr->reg_map.uart_gpio_mode_addr, val);
+			rv = set_reg_ext(xr, channel,
+					 xr->reg_map.uart_gpio_mode_addr, val);
 		}
 
 		dev_dbg(&xr->control->dev, "XR_USB_SERIAL_SET_GPIO_MODE_REG 0x%x val:0x%x\n",
