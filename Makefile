@@ -1,4 +1,4 @@
-obj-m := xr_usb_serial_common.o
+obj-m := exar.o
 
 KERNELDIR ?= /lib/modules/$(shell uname -r)/build
 PWD       := $(shell pwd)

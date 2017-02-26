@@ -53,7 +53,7 @@
 #include <linux/list.h>
 #include "linux/version.h"
 
-#include "xr_usb_serial_common.h"
+#include "exar.h"
 
 
 #define DRIVER_AUTHOR "<uarttechsupport@exar.com>"
@@ -2418,8 +2418,8 @@ static int __init xr_usb_serial_init(void)
 	xr_usb_serial_tty_driver = alloc_tty_driver(XR_USB_SERIAL_TTY_MINORS);
 	if (!xr_usb_serial_tty_driver)
 		return -ENOMEM;
-	xr_usb_serial_tty_driver->driver_name = "xr_usb_serial",
 	xr_usb_serial_tty_driver->name = "ttyXRUSB",
+	xr_usb_serial_tty_driver->driver_name = "exar-usb",
 	xr_usb_serial_tty_driver->major = XR_USB_SERIAL_TTY_MAJOR,
 	xr_usb_serial_tty_driver->minor_start = 0,
 	xr_usb_serial_tty_driver->type = TTY_DRIVER_TYPE_SERIAL,
