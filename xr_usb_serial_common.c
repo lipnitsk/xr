@@ -54,7 +54,6 @@
 #include "linux/version.h"
 
 #include "xr_usb_serial_common.h"
-#include "xr_usb_serial_ioctl.h"
 
 
 #define DRIVER_AUTHOR "<uarttechsupport@exar.com>"
