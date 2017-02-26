@@ -358,7 +358,7 @@ static int xr21v141x_set_baud_rate(struct xr_usb_serial *xr, unsigned int rate)
 /* devices aren't required to support these requests.
  * the cdc xr_usb_serial descriptor tells whether they do...
  */
-int xr_usb_serial_set_control(struct xr_usb_serial *xr, unsigned int control)
+static int set_control(struct xr_usb_serial *xr, unsigned int control)
 {
 	int ret = 0;
 
@@ -383,8 +383,7 @@ int xr_usb_serial_set_control(struct xr_usb_serial *xr, unsigned int control)
 	return ret;
 }
 
-int xr_usb_serial_set_line(struct xr_usb_serial *xr,
-			   struct usb_cdc_line_coding *line)
+static int set_line(struct xr_usb_serial *xr, struct usb_cdc_line_coding *line)
 {
 	int ret = 0;
 	unsigned int format_size;
@@ -408,8 +407,8 @@ int xr_usb_serial_set_line(struct xr_usb_serial *xr,
 	}
 	return ret;
 }
-int xr_usb_serial_set_flow_mode(struct xr_usb_serial *xr,
-				struct tty_struct *tty, unsigned int cflag)
+static int set_flow_mode(struct xr_usb_serial *xr, struct tty_struct *tty,
+			 unsigned int cflag)
 {
 	unsigned int flow;
 	unsigned int gpio_mode;
@@ -446,7 +445,7 @@ int xr_usb_serial_set_flow_mode(struct xr_usb_serial *xr,
 	return 0;
 }
 
-int xr_usb_serial_send_break(struct xr_usb_serial *xr, int state)
+static int send_break(struct xr_usb_serial *xr, int state)
 {
 	int ret = 0;
 
@@ -473,7 +472,7 @@ int xr_usb_serial_send_break(struct xr_usb_serial *xr, int state)
 
 
 
-int xr_usb_serial_enable(struct xr_usb_serial *xr)
+static int device_enable(struct xr_usb_serial *xr)
 {
 	int ret = 0;
 	int channel = xr->channel;
@@ -494,7 +493,7 @@ int xr_usb_serial_enable(struct xr_usb_serial *xr)
 
 	return ret;
 }
-int xr_usb_serial_fifo_reset(struct xr_usb_serial *xr)
+static int fifo_reset(struct xr_usb_serial *xr)
 {
 	int ret = 0;
 	int channel = xr->channel;
@@ -513,7 +512,7 @@ int xr_usb_serial_fifo_reset(struct xr_usb_serial *xr)
 }
 
 
-int xr_usb_serial_disable(struct xr_usb_serial *xr)
+static int device_disable(struct xr_usb_serial *xr)
 {
 	int ret = 0;
 	int channel = xr->channel;
@@ -528,19 +527,18 @@ int xr_usb_serial_disable(struct xr_usb_serial *xr)
 
 	return ret;
 }
-int xr_usb_serial_set_loopback(struct xr_usb_serial *xr, int channel)
+static int set_loopback(struct xr_usb_serial *xr, int channel)
 {
 	int ret = 0;
 
-	xr_usb_serial_disable(xr);
+	device_disable(xr);
 	ret = set_reg_ext(xr, channel,
 					xr->reg_map.uart_loopback_addr, 0x07);
-	xr_usb_serial_enable(xr);
+	device_enable(xr);
 	return ret;
 }
 
-
-static int xr_usb_serial_tiocmget(struct xr_usb_serial *xr)
+static int tiocmget(struct xr_usb_serial *xr)
 {
 	short data;
 	int result;
@@ -558,8 +556,8 @@ static int xr_usb_serial_tiocmget(struct xr_usb_serial *xr)
 	else
 		return -EFAULT;
 }
-static int xr_usb_serial_tiocmset(struct xr_usb_serial *xr,
-				  unsigned int set, unsigned int clear)
+static int tiocmset(struct xr_usb_serial *xr, unsigned int set,
+		    unsigned int clear)
 {
 	unsigned int newctrl = 0;
 

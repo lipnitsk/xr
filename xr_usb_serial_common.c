@@ -481,7 +481,7 @@ static int xr_usb_serial_tty_open(struct tty_struct *tty, struct file *filp)
 	struct xr_usb_serial *xr = tty->driver_data;
 	int result;
 
-	result = xr_usb_serial_fifo_reset(xr);
+	result = fifo_reset(xr);
 	dev_dbg(tty->dev, "%s\n", __func__);
 
 	return tty_port_open(&xr->port, tty, filp);
@@ -519,7 +519,7 @@ static int xr_usb_serial_port_activate(struct tty_port *port,
 	}
 
 	xr->ctrlout = XR_USB_SERIAL_CTRL_DTR | XR_USB_SERIAL_CTRL_RTS;
-	if (xr_usb_serial_set_control(xr, xr->ctrlout) < 0 &&
+	if (set_control(xr, xr->ctrlout) < 0 &&
 	    (xr->ctrl_caps & USB_CDC_CAP_LINE))
 		goto error_set_control;
 
@@ -542,7 +542,7 @@ static int xr_usb_serial_port_activate(struct tty_port *port,
 
 error_submit_read_urbs:
 	xr->ctrlout = 0;
-	xr_usb_serial_set_control(xr, xr->ctrlout);
+	set_control(xr, xr->ctrlout);
 error_set_control:
 	usb_kill_urb(xr->ctrlurb);
 error_submit_urb:
@@ -576,7 +576,7 @@ static void xr_usb_serial_port_shutdown(struct tty_port *port)
 	mutex_lock(&xr->mutex);
 	if (!xr->disconnected) {
 		usb_autopm_get_interface(xr->control);
-		xr_usb_serial_set_control(xr, xr->ctrlout = 0);
+		set_control(xr, xr->ctrlout = 0);
 		usb_kill_urb(xr->ctrlurb);
 		for (i = 0; i < XR_USB_SERIAL_NW; i++)
 			usb_kill_urb(xr->wb[i].urb);
@@ -721,7 +721,7 @@ static int xr_usb_serial_tty_break_ctl(struct tty_struct *tty, int state)
 	struct xr_usb_serial *xr = tty->driver_data;
 	int retval;
 
-	retval = xr_usb_serial_send_break(xr, state ? 0xffff : 0);
+	retval = send_break(xr, state ? 0xffff : 0);
 	if (retval < 0)
 		dev_dbg(&xr->control->dev, "%s - send break failed\n",
 			__func__);
@@ -733,7 +733,7 @@ static int xr_usb_serial_tty_tiocmget(struct tty_struct *tty)
 	struct xr_usb_serial *xr = tty->driver_data;
 
 	dev_dbg(&xr->control->dev, "xr_usb_serial_tty_tiocmget\n");
-	return xr_usb_serial_tiocmget(xr);
+	return tiocmget(xr);
 }
 
 static int xr_usb_serial_tty_tiocmset(struct tty_struct *tty,
@@ -743,7 +743,7 @@ static int xr_usb_serial_tty_tiocmset(struct tty_struct *tty,
 
 	dev_dbg(&xr->control->dev, "xr_usb_serial_tty_tiocmset set=0x%x clear=0x%x\n",
 		set, clear);
-	return xr_usb_serial_tiocmset(xr, set, clear);
+	return tiocmset(xr, set, clear);
 }
 
 static int get_serial_info(struct xr_usb_serial *xr,
@@ -869,13 +869,13 @@ static int xr_usb_serial_tty_ioctl(struct tty_struct *tty,
 			return -EFAULT;
 		if (channel == -1)
 			channel = xr->channel;
-		rv = xr_usb_serial_set_loopback(xr, channel);
+		rv = set_loopback(xr, channel);
 		if (rv < 0)
 			return -EFAULT;
 		rv = 0;
 		break;
 	case XR_USB_SERIAL_SET_GPIO_MODE_REG:
-		xr_usb_serial_disable(xr);
+		device_disable(xr);
 		if (get_user(channel, (int __user *)arg))
 			return -EFAULT;
 		if (get_user(val, (int __user *)(arg + sizeof(int))))
@@ -891,12 +891,12 @@ static int xr_usb_serial_tty_ioctl(struct tty_struct *tty,
 
 		dev_dbg(&xr->control->dev, "XR_USB_SERIAL_SET_GPIO_MODE_REG 0x%x val:0x%x\n",
 			xr->reg_map.uart_gpio_mode_addr, val);
-		xr_usb_serial_enable(xr);
+		device_enable(xr);
 		if (rv < 0)
 			return -EFAULT;
 		break;
 	case XR_USB_SERIAL_GET_GPIO_MODE_REG:
-		xr_usb_serial_disable(xr);
+		device_disable(xr);
 		if (get_user(channel, (int __user *)arg))
 			return -EFAULT;
 
@@ -911,7 +911,7 @@ static int xr_usb_serial_tty_ioctl(struct tty_struct *tty,
 					 xr->reg_map.uart_gpio_mode_addr, data);
 		}
 
-		xr_usb_serial_enable(xr);
+		device_enable(xr);
 
 		dev_dbg(&xr->control->dev, "XR_USB_SERIAL_GET_GPIO_MODE_REG 0x%x val:0x%x\n",
 			xr->reg_map.uart_gpio_mode_addr, *data);
@@ -941,9 +941,9 @@ static int xr_usb_serial_tty_ioctl(struct tty_struct *tty,
 		memcpy(&newline, &(xr->line),
 		       sizeof(struct usb_cdc_line_coding));
 
-		xr_usb_serial_disable(xr);
-		rv = xr_usb_serial_set_line(xr, &newline);
-		xr_usb_serial_enable(xr);
+		device_disable(xr);
+		rv = set_line(xr, &newline);
+		device_enable(xr);
 		dev_dbg(&xr->control->dev, "XRIOC_SET_ANY_BAUD_RATE set baud_rate:%d ret=%d\n",
 			baud_rate, rv);
 		break;
@@ -962,7 +962,7 @@ static void xr_usb_serial_tty_set_termios(struct tty_struct *tty,
 	struct usb_cdc_line_coding newline;
 	int newctrl = xr->ctrlout;
 
-	xr_usb_serial_disable(xr);
+	device_disable(xr);
 	newline.dwDTERate = cpu_to_le32(tty_get_baud_rate(tty));
 	newline.bCharFormat = termios->c_cflag & CSTOPB ? 1 : 0;
 	newline.bParityType = termios->c_cflag & PARENB ?
@@ -994,9 +994,9 @@ static void xr_usb_serial_tty_set_termios(struct tty_struct *tty,
 	}
 
 	if (newctrl != xr->ctrlout)
-		xr_usb_serial_set_control(xr, xr->ctrlout = newctrl);
+		set_control(xr, xr->ctrlout = newctrl);
 
-	xr_usb_serial_set_flow_mode(xr, tty, cflag);/*set the serial flow mode*/
+	set_flow_mode(xr, tty, cflag);/*set the serial flow mode*/
 
 	if (memcmp(&xr->line, &newline, sizeof(newline))) {
 		memcpy(&xr->line, &newline, sizeof(newline));
@@ -1005,9 +1005,9 @@ static void xr_usb_serial_tty_set_termios(struct tty_struct *tty,
 			le32_to_cpu(newline.dwDTERate),
 			newline.bCharFormat, newline.bParityType,
 			newline.bDataBits);
-		xr_usb_serial_set_line(xr, &xr->line);
+		set_line(xr, &xr->line);
 	}
-	xr_usb_serial_enable(xr);
+	device_enable(xr);
 }
 
 static const struct tty_port_operations xr_usb_serial_port_ops = {
@@ -1469,11 +1469,11 @@ skip_countries:
 
 	xr_usb_serial_pre_setup(xr);
 
-	xr_usb_serial_set_control(xr, xr->ctrlout);
+	set_control(xr, xr->ctrlout);
 
 	xr->line.dwDTERate = cpu_to_le32(9600);
 	xr->line.bDataBits = 8;
-	xr_usb_serial_set_line(xr, &xr->line);
+	set_line(xr, &xr->line);
 
 	usb_driver_claim_interface(&xr_usb_serial_driver, data_if, xr);
 	usb_set_intfdata(data_if, xr);
