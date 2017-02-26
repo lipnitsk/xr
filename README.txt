@@ -1,7 +1,7 @@
 Exar USB Serial Driver
 ======================
 Version 1B, 1/13/2017
-Fixed Bug: The conditional logic to support kernel 3.9 was incorrect (line 396 in xr_usb_serial_common.c). 
+Fixed Bug: The conditional logic to support kernel 3.9 was incorrect (line 396 in xr_usb_serial_common.c).
 
 Version 1A, 1/9/2015
 
