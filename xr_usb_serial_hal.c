@@ -150,7 +150,7 @@ static int set_reg_ext(struct xr_usb_serial *xr, int channel, int regnum,
 	return result;
 }
 
-int xr_usb_serial_get_reg(struct xr_usb_serial *xr, int regnum, short *value)
+static int get_reg(struct xr_usb_serial *xr, int regnum, short *value)
 {
 	int result;
 	int channel = 0;
@@ -219,8 +219,8 @@ int xr_usb_serial_get_reg(struct xr_usb_serial *xr, int regnum, short *value)
 }
 
 
-int xr_usb_serial_get_reg_ext(struct xr_usb_serial *xr, int channel, int regnum,
-			      short *value)
+static int get_reg_ext(struct xr_usb_serial *xr, int channel, int regnum,
+		       short *value)
 {
 	int result;
 	int XR2280xaddr = XR2280x_FUNC_MGR_OFFSET + regnum;
@@ -249,8 +249,7 @@ int xr_usb_serial_get_reg_ext(struct xr_usb_serial *xr, int channel, int regnum,
 					 &reg_value,
 					 1,
 					 5000);
-		dev_dbg(&xr->control->dev, "xr_usb_serial_get_reg_ext reg:%x\n",
-			reg_value);
+		dev_dbg(&xr->control->dev, "get_reg_ext reg:%x\n", reg_value);
 		*value = reg_value;
 	} else if (xr->DeviceProduct == 0x1411) {
 		result = usb_control_msg(xr->dev,
@@ -546,8 +545,7 @@ static int xr_usb_serial_tiocmget(struct xr_usb_serial *xr)
 	short data;
 	int result;
 
-	result = xr_usb_serial_get_reg(xr, xr->reg_map.uart_gpio_status_addr,
-				       &data);
+	result = get_reg(xr, xr->reg_map.uart_gpio_status_addr, &data);
 	dev_dbg(&xr->control->dev, "xr_usb_serial_tiocmget uart_gpio_status_addr:0x%04x\n",
 		data);
 	if (result)

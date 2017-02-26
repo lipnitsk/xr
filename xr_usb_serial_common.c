@@ -828,9 +828,9 @@ static int xr_usb_serial_tty_ioctl(struct tty_struct *tty,
 			return -ENOMEM;
 
 		if (channel == -1)
-			rv = xr_usb_serial_get_reg(xr, reg, data);
+			rv = get_reg(xr, reg, data);
 		else
-			rv = xr_usb_serial_get_reg_ext(xr, channel, reg, data);
+			rv = get_reg_ext(xr, channel, reg, data);
 		if (rv < 0) {
 			dev_err(&xr->control->dev, "Cannot get register (%d)\n",
 				rv);
@@ -905,11 +905,10 @@ static int xr_usb_serial_tty_ioctl(struct tty_struct *tty,
 			return -ENOMEM;
 
 		if (channel == -1) {
-			rv = xr_usb_serial_get_reg(xr,
-					xr->reg_map.uart_gpio_mode_addr, data);
+			rv = get_reg(xr, xr->reg_map.uart_gpio_mode_addr, data);
 		} else {
-			rv = xr_usb_serial_get_reg_ext(xr, channel,
-					xr->reg_map.uart_gpio_mode_addr, data);
+			rv = get_reg_ext(xr, channel,
+					 xr->reg_map.uart_gpio_mode_addr, data);
 		}
 
 		xr_usb_serial_enable(xr);
